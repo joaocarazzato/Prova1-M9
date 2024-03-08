@@ -47,7 +47,7 @@ def test_receieve_rate():
     acceptable_error_margin = 0.1  # 10%
 
     start_time = time.time()
-    
+
     # Loop para manter o cliente executando e escutando por mensagens em segundo plano
     client.loop_start()
 
@@ -64,3 +64,33 @@ def test_receieve_rate():
     actual_message_rate = message_count / duration
     lower_bound = target_message_rate * (1 - acceptable_error_margin)
     assert lower_bound <= actual_message_rate
+
+def test_mqtt_integrity():
+    received_messages = []
+
+    def on_message(client, userdata, msg):
+        received_messages.append(msg.payload.decode())
+
+    # Configurar o subscriber
+    client_sub = mqtt.Client()
+    client_sub.on_message = on_message
+    client_sub.connect("localhost", 1891, 60)
+    client_sub.subscribe("test/topic", qos=1)
+
+    # Iniciar loop em segundo plano para o subscriber
+    client_sub.loop_start()
+
+    # Enviar mensagem do Publisher
+    client_pub = mqtt.Client()
+    client_pub.connect("localhost", 1891, 60)
+    client_pub.publish("test/topic", "Hello, MQTT!")
+
+    # Esperar um pouco para a mensagem ser recebida
+    time.sleep(2)
+
+    # Verificar se a mensagem foi recebida corretamente
+    assert received_messages[-1] == "Hello, MQTT!"
+
+    # Desconectar os clientes
+    client_pub.disconnect()
+    client_sub.disconnect()
